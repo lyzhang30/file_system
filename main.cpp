@@ -6,6 +6,7 @@
 #include <cstring>
 #include "config.h"
 #include "functionDefine.h"
+#include <cstring>
 using namespace std;
 
 typedef struct SUPER_BLOCK super_block;
@@ -34,25 +35,29 @@ void insertLog(char * logContent) {
     log.close();
 }
 
-void getTime(char * tempBuf) {
-    char time[9];
+string getTime() {
+    char tempBuf[9];
     t = std::time(NULL);
     std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&t));
-    cout << *tempBuf;
+//    cout << tempBuf;
+    return tempBuf;
 }
 
 void getLog(char * command, char * input ) {
     int commandLen = (int)strlen(command);
     int inputLen = (int)strlen(input);
-    char operationLog[commandLen + inputLen + 8];
+    char operationLog[commandLen + inputLen + 20];
     strcpy(operationLog, command);
     strcat(operationLog, "\t");
     strcat(operationLog, input);
+    strcat(operationLog, "\t");
+    strcat(operationLog, getTime().c_str());
     insertLog(operationLog);
 }
 
 int main() {
-
+    // Windwos下面设定终端输出的编码格式为GBK
+//    system("chcp 65001 > nul");
     control.open(controlFile, ios::in | ios::out | ios::app);
     int i;
     control >> i;
@@ -61,7 +66,6 @@ int main() {
         /**
          * 不为0就初始化
          */
-        cout << "初始化user.txt" << endl;
         initial();
     }
     control.open(controlFile, ios::in | ios::out);
@@ -139,9 +143,7 @@ void initial() {
     disk << setw(6) << "adm";
     disk << setw(6) << "adm";
     disk << setw(11) << "drwxrwxrwx";
-    char time[9];
-    t = std::time(NULL);
-    std::strftime(time, sizeof(time), "%H:%M:%S", std::localtime(&t));
+    const string &time = getTime();
     // 最近修改时间
     disk << setw(9) << time;
     /**
@@ -501,10 +503,8 @@ void mk(char * filename, char * content) {
                             closeDisk();
                             // 当前目录节点的修改
                             inode.fsize += 36;
-                            char tempBuf[9];
-                            t = std::time(NULL);
-                            std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&t));
-                            strcpy(inode.ctime, tempBuf);
+                            const string &time = getTime();
+                            strcpy(inode.ctime, time.c_str());
                             // 新建目录节点的初始化
                             // 文件大小
                             inode2.fsize = size;
@@ -527,9 +527,8 @@ void mk(char * filename, char * content) {
                             strcpy(inode2.group, curgroup);
                             // 存储权限
                             strcpy(inode2.mode, "-rwxrwxrwx");
-                            t = std::time(NULL);
-                            std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&t));
-                            strcpy(inode2.ctime, tempBuf);
+                            const string &time1 = getTime();
+                            strcpy(inode2.ctime, time1.c_str());
                             writenode(inode2, iid);
                             // 新建文件盘块的初始化
                             char temp;
@@ -597,10 +596,8 @@ void rm(char * filename) {
                     }
                     // 对当前目录节点的修改
                     inode.fsize -= 36;
-                    char tempBuf[9];
-                    t = std::time(NULL);
-                    std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&t));
-                    strcpy(inode.ctime, tempBuf);
+                    const string &time = getTime();
+                    strcpy(inode.ctime, time.c_str());
                     cout << "文件已经成功删除" << endl;
                 } else {
                     cout << "目录文件应用rmdir命令删除";
@@ -822,10 +819,8 @@ void mkdir(char * dirname) {
                         closeDisk();
                         //当前目录节点的修改
                         inode.fsize +=36;
-                        char tmpbuf[9];
-                        t = std::time(NULL);
-                        std::strftime(tmpbuf, sizeof(tmpbuf), "%H:%M:%S", std::localtime(&t));
-                        strcpy(inode.ctime,tmpbuf);
+                        const string &time1 = getTime();
+                        strcpy(inode.ctime,time1.c_str());
                         //新建目录节点的初始化
                         inode2.fsize = 0; //文件大小
                         inode2.fbnum = 1; //文件盘块数
@@ -840,9 +835,9 @@ void mkdir(char * dirname) {
                         strcpy(inode2.group,curgroup); //文件所属组
                         strcpy(inode2.mode,"drwxrwxrwx");
                         //文件类别及存储权限（默认最高）
-                        t = std::time(NULL);
-                        std::strftime(tmpbuf, sizeof(tmpbuf), "%H:%M:%S", std::localtime(&t));
-                        strcpy(inode2.ctime,tmpbuf); //最近修改时间
+                        const string &time2 = getTime();
+                        //最近修改时间
+                        strcpy(inode.ctime,time2.c_str());
                         writenode(inode2,iid);
                         openDisk();
                         disk.seekg(514+64*iid+2*(iid/8));
@@ -858,9 +853,8 @@ void mkdir(char * dirname) {
                         disk << setw(6) << curgroup;
                         disk << setw(12) <<"drwxrwxrwx";
                         //文件类别及存储权限
-                        t = std::time(NULL);
-                        std::strftime(tmpbuf, sizeof(tmpbuf), "%H:%M:%S", std::localtime(&t));
-                        disk << setw(10) << tmpbuf;
+                        const string &time3 = getTime();
+                        disk << setw(10) << time3;
                         closeDisk();
                         cout << "目录已成功创建";
                     }else{
@@ -1007,7 +1001,7 @@ bool login() {
     cout << "you password?";
     cin >> curPassword;
     bool have = false;
-    user.open("user.txt", ios::in);
+    user.open(userFile, ios::in);
     for (int n = 0; n < USER_NUM; ++n) {
         // username, password, group 长度6
         user.seekp(18 * n);

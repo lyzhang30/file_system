@@ -11,6 +11,7 @@ using namespace std;
 
 typedef struct SUPER_BLOCK super_block;
 super_block superblock;
+
 fstream control;
 fstream user;
 fstream disk;
@@ -127,22 +128,22 @@ void initial() {
         // 空闲盘块号栈 10 * 3 = 30B 11 # 盘块已使用末尾盘块为21
         disk << setw(3) << j + 12;
     }
-    disk << setw(3) << 10;
-    disk << setw(3) << 80;
-    disk << setw(3) << 89;
-    disk.seekp(514);
-    disk << setw(6) << 0;
-    disk << setw(6) << 1;
-    disk << setw(3) << 11;
-    disk << setw(3) << 0;
-    disk << setw(3) << 0;
-    disk << setw(3) << 0;
+    disk << setw(3) << 10;    // 空闲节点栈指针==当前栈的盘块数
+    disk << setw(3) << 80;    // 空闲节点总数
+    disk << setw(3) << 89;    // 空闲盘块总数
+    disk.seekp(514);             // 根目录文件的初始化 1#盘块开始的
+    disk << setw(6) << 0;     // 文件大小
+    disk << setw(6) << 1;     // 文件盘块数
+    disk << setw(3) << 11;    //
+    disk << setw(3) << 0;     // 指向0#表示没有指向
+    disk << setw(3) << 0;     //
+    disk << setw(3) << 0;     //
     // 一个一次间址
     disk << setw(3) << 0;
-    disk << setw(3) << 0;
-    disk << setw(6) << "adm";
-    disk << setw(6) << "adm";
-    disk << setw(11) << "drwxrwxrwx";
+    disk << setw(3) << 0;     // 一个两次间址
+    disk << setw(6) << "adm";  // 文件所有者
+    disk << setw(6) << "adm";   // 文件所属组
+    disk << setw(11) << "drwxrwxrwx";   // 文件类型及存储权限
     const string &time = getTime();
     // 最近修改时间
     disk << setw(9) << time;
@@ -181,7 +182,7 @@ void initial() {
  */
 int ialloc() {
     if (superblock.fiptr > 0) {
-        // 当前可用
+        // 当前可用  80 - superblock.fiptr 80 是索引节点总个数，fiptr是空闲节点的个数
         int temp = superblock.fistack[80 - superblock.fiptr];
         superblock.fistack[80 - superblock.fiptr] = -1;
         superblock.fiptr--;
@@ -198,8 +199,8 @@ int ialloc() {
  */
 void ifree(int index) {
     openDisk();
-    // 清空节点
-    disk.seekp(514 + 64 * index + 2* (index / 8));
+    // 清空节点， 节点的索引定位 514 是0#, 64是索引大小，
+    disk.seekp(514 + 64 * index + 2 * ( index / 8));
     disk << setw(6) << "";
     closeDisk();
     // 把节点号找到合适的位置插入到空闲节点栈

@@ -58,7 +58,7 @@ void getLog(char * command, char * input ) {
 
 int main() {
     // Windwos下面设定终端输出的编码格式为GBK
-//    system("chcp 65001 > nul");
+    system("chcp 65001 > nul");
     control.open(controlFile, ios::in | ios::out | ios::app);
     int i;
     control >> i;
@@ -199,7 +199,7 @@ int ialloc() {
  */
 void ifree(int index) {
     openDisk();
-    // 清空节点， 节点的索引定位 514 是0#, 64是索引大小，
+    // 清空节点， 节点的索引定位 514 是0#, 64是索引大小， TODO
     disk.seekp(514 + 64 * index + 2 * ( index / 8));
     disk << setw(6) << "";
     closeDisk();
@@ -1055,12 +1055,112 @@ bool havePower(INODE inode) {
     }
 }
 
-void chmod(char * name) {
+void chomd(char * name){
+    INODE inode,inode2;
+    readinode(road[num-1],inode);//
+    int i , index2;
 
+    if(havesame(name,inode,i, index2)){
+        readinode(index2,inode2);
+        if(havePower(inode2)){
+            char amode[3];
+            cout << "1 表示所有者，4表示组内，7表示其他用户，a表示-wx模式，b模式，c表示rwx模式/n";
+            cout << "请输入修改方案（例如 4c）:";
+            cin >> amode;
+            if(amode[0]='1' || amode[0]=='4' || amode[0]=='7'){
+                if(amode[1]=='a'){
+                    inode2.mode[(int)amode[0]-48]='-';
+                    inode2.mode[(int)amode[0]+1-48]='w';
+                    writenode(inode2,index2);
+                    cout << "修改完毕";
+                }else{
+                    if(amode[1]=='b'){
+                        inode2.mode[(int)amode[0]-48]='r';
+                        inode2.mode[(int)amode[0]+1-48]='-';
+                        writenode(inode2,index2);
+                        cout<<"修改完毕";
+                    }else{
+                        if(amode[1]=='c'){
+                            inode2.mode[(int)amode[0]-48]='r';
+                            inode2.mode[(int)amode[0]+1-48]='w';
+                            writenode(inode2,index2);
+                        }else{
+                            cout << "输入不合法";
+                            return ;
+                        }
+                    }
+                }
+            }else{
+                cout<<"输入不合法!!!";
+                return;
+            }
+        }else{
+            cout<<"你无权修改该子目录或文件";
+            return ;
+        }
+    }else{
+        cout<<"不存在该子目录或文件";
+        return ;
+    }
+
+    const string &ctime = getTime();
+    strcpy(inode.ctime,ctime.c_str());
+    strcpy(inode2.ctime,ctime.c_str());
+    writenode(inode,road[num-1]);
+    writenode(inode2,index2);
+    return;
 }
 
-void chown(char * name) {
 
+void chown(char *name){
+    INODE inode,inode2;
+    readinode(road[num-1],inode);
+    int i,index2;
+    if( havePower(inode)){
+        if( havesame(name,inode,i,index2) ){
+            readinode(index2,inode2);
+            if( havePower(inode2) ){
+                char owner2[6];
+                char auser2[6];
+                char group2[6];
+                cout<<"请输入改后的文件所有者:";
+                cin>>owner2;
+                bool is=false;
+                user.open("user.txt",ios::in);
+                for( int n=0;n<USER_NUM;n++ ){
+                    user.seekg(18*n);
+                    user>>auser2;
+                    if( !strcmp(owner2,auser2)){
+                        is=true;
+                        user.seekg(18*n+12);
+                        user>>group2;
+                        break;
+                    }
+                }
+
+                user.close();
+                if(is){
+                    strcpy(inode2.owner,owner2);
+                    strcpy(inode2.group,group2);
+                    writenode(inode2,index2);
+                    cout<<"改成";
+                    const string &ctime = getTime();
+                    strcpy(inode.ctime,ctime.c_str());
+                    strcpy(inode2.ctime,ctime.c_str());
+                    writenode(inode,road[num-1]);
+                    writenode(inode2,index2);
+                }else{
+                    cout << "不存在该用户，修改失败";
+                }
+            }else{
+                cout << "你没有权限";
+            }
+        }else{
+            cout << "不存在该子目录或文件";
+        }
+    }else{
+        cout << "你没有权限";
+    }
 }
 
 void chgrp(char * name) {

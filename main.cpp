@@ -1055,7 +1055,7 @@ bool havePower(INODE inode) {
     }
 }
 
-void chomd(char * name){
+void chmod(char * name){
     INODE inode,inode2;
     readinode(road[num-1],inode);//
     int i , index2;

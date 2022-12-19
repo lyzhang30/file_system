@@ -26,6 +26,12 @@ void openDisk() {
     disk.open(diskFile, ios::in | ios::out);
 }
 
+void openUser() {
+    disk.open(diskFile, ios::in | ios::out);
+}
+void closeUser() {
+    user.close();
+}
 void closeDisk() {
     disk.close();
 }
@@ -726,7 +732,7 @@ bool havesame(char *dirname, INODE inode, int & i, int &index2) {
     char name[14];
     openDisk();
     // 遍历目录项
-    for (int i = 0; i < (inode.fsize / 36); ++i) {
+    for (i = 0; i < (inode.fsize / 36); ++i) {
         disk.seekp(514 * inode.addr[0] + 36*i);
         disk >> name;
         if (!strcmp(dirname, name)) {
@@ -1019,8 +1025,34 @@ bool login() {
     return have;
 }
 
+/**
+ * 修改密码
+ */
 void changePassword() {
-
+    char aUser2[6];
+    char aPwd2[6];
+    cout << "请输入原有密码：";
+    cin >> aPwd2;
+    if (!strcmp(curPassword, aPwd2)) {
+        openUser();
+        int n;
+        for (n = 0; n < USER_NUM; n++) {
+            user.seekp(18 * n);
+            user >> aUser2;
+            if (!strcmp(curUserName, aUser2)) {
+                user >> curgroup;
+                break;
+            }
+        }
+        cout << "请输入密码：" << endl;
+        cin >> aPwd2;
+        user.seekp(18 * n + 6);
+        user << setw(6) << aPwd2;
+        cout << "密码修改成功";
+        closeUser();
+    } else {
+        cout << "输入错误";
+    }
 }
 
 /**
@@ -1163,12 +1195,104 @@ void chown(char *name){
     }
 }
 
-void chgrp(char * name) {
-
+/**
+  改变文件的所属组
+  **/
+void chgrp(char *name){/*改变文件所属组*/
+    INODE inode, inode2;
+    readinode(road[num-1], inode);
+    int i,index2;
+/*当前节点写入节点对象*/
+/*i为目录项下标，index2为目录项中节点号*/
+    if( havePower(inode)){
+        if( havesame(name,inode,i,index2)){
+            readinode(index2,inode2);
+            if(havePower(inode2)){
+                char group2[6];
+                char agroup2[6];
+                cout<<"请输入改后的文件所属组:";
+                cin>>group2;
+                bool is=false;/*判断输入的也是合法用户名*/
+                openUser();
+                for( int n=0;n<USER_NUM;n++){
+                    /*用户名18n+0~18n+5，密码18n+6~18n+11 用户组18n+12~18n+17*/
+                    user.seekg(18*n+12);
+                    user>>agroup2;
+                    if(!strcmp(group2,agroup2)){
+                        is=true;
+                        break;
+                    }
+                }
+                closeUser();
+                if (is){
+                    strcpy(inode2.group,group2);
+                    writenode(inode2,index2);
+                    cout<<"修改成功";
+                    /*修改当前节点和子节点*/
+                    const string &ctime = getTime();
+                    strcpy(inode.ctime,ctime.c_str());
+                    strcpy(inode2.ctime,ctime.c_str());
+                    writenode(inode,road[num-1]);
+                    writenode(inode2,index2);
+                }else{
+                    cout<<"不存在该组，修改失败";
+                }
+            }else{
+                cout<<"你没有权限";
+            }
+        }else{
+            cout<<"不存在该子目录或文件";
+        }
+    }else{
+        cout<<"你没有权限";
+    }
 }
 
+/**
+ * 改变文件名
+ * **/
 void chnam(char * name) {
-
+    INODE inode,inode2;
+    readinode(road[num-1],inode);/*当前节点写入节点对象*/
+    int i,index2;/*i为目录项下标，index2为目录项中节点号*/
+    if( havePower(inode)) {
+        if( havesame(name,inode,i,index2)){
+            readinode(index2,inode2);
+            if( havePower(inode2)) {
+                char name2[14];
+                cout<<"请输入更改后的文件名:";
+                cin>>name2;
+                openDisk();
+                disk.seekp( 514*inode.addr[0]+36*i);
+                disk<<setw(15)<<name2;
+                disk.close();
+                /*如是录文件，其下的所有目录项都要改parame[14]*/
+                if(inode2.mode[0]='d'){
+                    openDisk();
+                    for(int i=0;i<(inode2.fsize/36);i++)
+                        {
+                            disk.seekg(514*inode2.addr[0]+36*i+18);
+                            disk<<setw(15)<<name2;
+                        }
+                    disk.close();
+                }
+                cout<<"更改成功";
+                /*修改当前节点和子节点*/
+                const string &ctime = getTime();
+                strcpy(inode.ctime, ctime.c_str());
+                strcpy(inode2.ctime, ctime.c_str());
+                strcpy(inode2.ctime, ctime.c_str());
+                writenode(inode,road[num-1]);
+                writenode(inode2,index2);
+            }else{
+                cout<<"你没有权限";
+            }
+        }else{
+            cout<<"不存在该子录或文件";
+        }
+    }else{
+        cout<<"你没有权限";
+    }
 }
 
 /**

@@ -104,9 +104,9 @@ struct DIR {
 /**
  * 配置一个变量维护全局的用户和用户组
  */
-char curUserName[6] = "adm";
-char curgroup[6] = "adm";
-char curPassword[6] = "123";
+char curUserName[6];
+char curgroup[6];
+char curPassword[6];
 
 char diskFile[100] = "disk.txt";
 char operatorLogFile[100] = "operation.log";

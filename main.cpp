@@ -27,7 +27,7 @@ void openDisk() {
 }
 
 void openUser() {
-    disk.open(diskFile, ios::in | ios::out);
+    user.open(userFile, ios::in | ios::out);
 }
 void closeUser() {
     user.close();
@@ -637,7 +637,7 @@ void cp(char * string) {
     char tcurname[14];
     int troad[20];
     int tnum = num;
-    strcpy(tcurname,curName);
+    strcpy(tcurname, curName);
     for (int i = 0; i < num; i++)
     {
         troad[i] = road[i];
@@ -777,8 +777,8 @@ bool find(char * string) {
                 openDisk();
                 disk.seekg(514*inode.addr[0]+36*ii);
                 disk >> tname;
-                disk.close();
-                strcpy(curName,tname);
+                closeDisk();
+                strcpy(curName, tname);
                 road[num] = index2;
                 num++;
                 //判断字符串结尾
@@ -879,8 +879,94 @@ void mkdir(char * dirname) {
     writenode(inode,road[num-1]);
 }
 
+/**
+ * 删除目录
+ * @param dirname
+ * @param index
+ */
 void rmdir(char * dirname, int index) {
-
+    /**
+     * 当前目录下删除目录，将删除的目录可能非空，
+     * 策略两种：
+     * 1. 只删除空目录
+     * 2. 递归将非空目录的所有子目录删除，然后再删除自己，第一种实现比较简单，采用第二种
+     */
+     // TODO t 暂时不清楚意义
+     int t = 1;  // 目前不知道是统计什么的，应该其他函数是有用到的
+     INODE inode, inode2;
+     DIR dir;
+    readinode(index, inode);
+    if (havePower(inode)) {
+        // i:待删除的子目录下标，index2为目录项种的待删子目录的节点
+        int i, index2;
+        if (havesame(dirname, inode, i, index2)) {
+            readinode(index2, inode2);
+            if (havePower(inode2)) {
+                if (inode2.mode[0] == 'd') {
+                    if (inode2.fsize != 0) {
+                        char yes = 'y';
+                        if (t == 1) {
+                            cout << "该目录为非空，删除的话，将失去目录的所有文件，要继续吗？(y/n)";
+                            cin >> yes;
+                        }
+                        if ((yes == 'y') || (yes == 'Y')) {
+                            // 遍历待删除子目录（inode2）所有的子目录，递归将其删除
+                            char name[14];
+                            int index3;
+                            INODE inode3;
+                            for (int i = 0; i < (inode2.fsize / 36); i++) {
+                                openDisk();
+                                disk.seekg(inode2.addr[0] * 514 + 36 * i);
+                                disk >> name;
+                                disk >> index3;
+                                closeDisk();
+                                readinode(index3, inode3);
+                                if (inode3.mode[0] == 'd') {
+                                    rmdir(name, index2);
+                                } else {
+                                    rm(name);
+                                }
+                            }
+                            rmdir(dirname, index);
+                        } else {
+                            cout << "目录删除失败";
+                        }
+                    } else {
+                        // 空目录删除
+                        bfree(inode2.addr[0]);
+                        ifree(index2);
+                        // 对当前目录盘块的修改，inode.addr[0]为当前盘块号，i为待删子目录子目录项下标
+                        openDisk();
+                        disk.seekp(514 * inode.addr[0] + 36 * i);
+                        disk << setw(36) << "";
+                        closeDisk();
+                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
+                            readdir(inode, j, dir);
+                            writedir(inode, dir, j-1);
+                        }
+                        // 对当前目录节点的修改
+                        inode.fsize -= 36;
+                        const string &ctime = getTime();
+                        strcpy(inode.ctime, ctime.c_str());
+                    }
+                    cout << "目录成功删除";
+                    // 修改当前节点
+                    inode.fsize -= 36;
+                    const string &ctime1 = getTime();
+                    strcpy(inode.ctime, ctime1.c_str());
+                } else {
+                    cout << "数据文件应用rm命令删除";
+                }
+            } else {
+                cout << "你没有权限";
+            }
+        } else {
+            cout << "目录中不存在该子目录";
+        }
+    } else {
+        cout << "你没有权限";
+    }
+    writenode(inode, index);
 }
 
 /**
@@ -938,6 +1024,7 @@ void cd(char * string) {
             disk >> name;
             strcpy(curName, name);
             num--;
+            closeDisk();
             cout << "已切换到父目录";
             return;
         }
@@ -1008,7 +1095,7 @@ bool login() {
     cout << "you password?";
     cin >> curPassword;
     bool have = false;
-    user.open(userFile, ios::in);
+    openUser();
     for (int n = 0; n < USER_NUM; ++n) {
         // username, password, group 长度6
         user.seekp(18 * n);
@@ -1021,7 +1108,7 @@ bool login() {
             break;
         }
     }
-    closeDisk();
+    closeUser();
     return have;
 }
 
@@ -1087,6 +1174,7 @@ bool havePower(INODE inode) {
     }
 }
 
+// TODO 修改但是文件的权限并没有修改
 void chmod(char * name){
     INODE inode,inode2;
     readinode(road[num-1],inode);//
@@ -1096,7 +1184,7 @@ void chmod(char * name){
         readinode(index2,inode2);
         if(havePower(inode2)){
             char amode[3];
-            cout << "1 表示所有者，4表示组内，7表示其他用户，a表示-wx模式，b模式，c表示rwx模式/n";
+            cout << "1 表示所有者，4表示组内，7表示其他用户，a表示-wx模式，b表示r-x模式，c表示rwx模式/n";
             cout << "请输入修改方案（例如 4c）:";
             cin >> amode;
             if(amode[0]='1' || amode[0]=='4' || amode[0]=='7'){

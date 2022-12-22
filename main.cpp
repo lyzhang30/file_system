@@ -50,6 +50,11 @@ string getTime() {
     return tempBuf;
 }
 
+/**
+ * 输入日志模块
+ * @param command
+ * @param input
+ */
 void getLog(char * command, char * input ) {
     int commandLen = (int)strlen(command);
     int inputLen = (int)strlen(input);
@@ -205,7 +210,7 @@ int ialloc() {
  */
 void ifree(int index) {
     openDisk();
-    // 清空节点， 节点的索引定位 514 是0#, 64是索引大小， TODO
+    // 清空节点， 节点的索引定位 514 是0#, 64是索引大小，
     disk.seekp(514 + 64 * index + 2 * ( index / 8));
     disk << setw(6) << "";
     closeDisk();
@@ -462,7 +467,6 @@ void mk(char * filename, char * content) {
     INODE inode, inode2;
     // 把当前节点road[num-1]内容读入索引节点
     readinode(road[num - 1], inode);
-
     if (havePower(inode)) {
         // 判断是否目录项已经达到14个
         if (512 - inode.fsize < 36) {
@@ -619,6 +623,22 @@ void rm(char * filename) {
         cout << "你没有权限" << endl;
     }
     writenode(inode, road[num - 1]);
+}
+
+/**
+ * 删除文件
+ * @author zhanglianyong
+ * @param filename
+ */
+void rmForDir(char * filename, int index) {
+
+    // 在调用这个函数之前，先把路径给存进去，然后再去除掉
+    road[num] = index;
+    num++;
+    rm(filename);
+    // 恢复到原先的路径下
+    num--;
+    road[num] = 0;
 }
 
 /**
@@ -914,6 +934,8 @@ void rmdir(char * dirname, int index) {
                             char name[14];
                             int index3;
                             INODE inode3;
+                            // add  by zhanglianyong
+
                             for (int i = 0; i < (inode2.fsize / 36); i++) {
                                 openDisk();
                                 disk.seekg(inode2.addr[0] * 514 + 36 * i);
@@ -924,7 +946,7 @@ void rmdir(char * dirname, int index) {
                                 if (inode3.mode[0] == 'd') {
                                     rmdir(name, index2);
                                 } else {
-                                    rm(name);
+                                    rmForDir(name, index2);
                                 }
                             }
                             rmdir(dirname, index);
@@ -1544,6 +1566,7 @@ void getCommand() {
         if (!strcmp(command, "exit")) {
             getLog(command, "");
             have = true;
+            writesuper();
             return;
         }
         if (!have) {

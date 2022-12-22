@@ -108,7 +108,7 @@ char curUserName[6];
 char curgroup[6];
 char curPassword[6];
 
-char diskFile[100] = "disk.txt";
-char operatorLogFile[100] = "operation.log";
-char controlFile[100] = "control.txt";
-char userFile[100] = "user.txt";
+char diskFile[100] = "D:\\clion_code\\file_system\\disk.txt";
+char operatorLogFile[100] = "D:\\clion_code\\file_system\\operation.log";
+char controlFile[100] = "D:\\clion_code\\file_system\\control.txt";
+char userFile[100] = "D:\\clion_code\\file_system\\user.txt";

@@ -39,7 +39,8 @@ void closeDisk() {
 
 void insertLog(char * logContent) {
     log.open(operatorLogFile, ios::in | ios::out | ios::app);
-    log << *logContent << endl;
+    log.seekp(0, log.end);
+    log << logContent << endl;
     log.close();
 }
 
@@ -65,7 +66,7 @@ string getTime() {
 void getLog(char * command, char * input ) {
     int commandLen = (int)strlen(command);
     int inputLen = (int)strlen(input);
-    char operationLog[commandLen + inputLen + 20];
+    char operationLog[commandLen + inputLen + 40];
     strcpy(operationLog, command);
     strcat(operationLog, "\t");
     strcat(operationLog, input);

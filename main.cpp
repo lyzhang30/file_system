@@ -16,11 +16,12 @@ fstream control;
 fstream user;
 fstream disk;
 ofstream log;
-std::time_t t;
+std::time_t timeTemp;
 
 char curName[128] = "/";
 int road[100];
 int num;
+int tCnt = 1;
 
 void openDisk() {
     disk.open(diskFile, ios::in | ios::out);
@@ -42,10 +43,16 @@ void insertLog(char * logContent) {
     log.close();
 }
 
+/**
+ * 删除非空目录中使用到的
+ */
+void setTcnt() {
+    tCnt = 1;
+}
 string getTime() {
     char tempBuf[9];
-    t = std::time(NULL);
-    std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&t));
+    timeTemp = std::time(NULL);
+    std::strftime(tempBuf, sizeof(tempBuf), "%H:%M:%S", std::localtime(&timeTemp));
 //    cout << tempBuf;
     return tempBuf;
 }
@@ -197,6 +204,7 @@ int ialloc() {
         int temp = superblock.fistack[80 - superblock.fiptr];
         superblock.fistack[80 - superblock.fiptr] = -1;
         superblock.fiptr--;
+        writesuper();
         return temp;
     }
     return -1;
@@ -226,7 +234,7 @@ void ifree(int index) {
         }
     }
     superblock.fiptr++;
-
+    writesuper();
 }
 
 /**
@@ -331,13 +339,13 @@ int balloc() {
         disk.seekp(514 * temp);
         disk << setw(512) << "";
         closeDisk();
-        return temp;
     } else {
         // 不是记录盘块
         superblock.fbstack[10 - superblock.fbptr] = -1;
         superblock.fbptr--;
-        return temp;
     }
+    writesuper();
+    return temp;
 }
 
 /**
@@ -364,6 +372,7 @@ void bfree(int index) {
     // 回收盘块压栈
     superblock.fbstack[10 - superblock.fbptr - 1] = index;
     superblock.fbptr++;
+    writesuper();
 }
 
 /**
@@ -447,10 +456,11 @@ void readdir(INODE inode, int index, DIR & dir) {
  */
 void writedir(INODE inode, DIR dir, int index) {
     openDisk();
+    disk.seekp(514 * inode.addr[0] + 36 * index);
     disk << setw(15) << dir.fname;
     disk << setw(3) << dir.index;
     disk << setw(15) << dir.parfname;
-    disk << setw(3) << dir.parfname;
+    disk << setw(3) << dir.parindex;
     closeDisk();
 }
 
@@ -911,10 +921,8 @@ void rmdir(char * dirname, int index) {
      * 1. 只删除空目录
      * 2. 递归将非空目录的所有子目录删除，然后再删除自己，第一种实现比较简单，采用第二种
      */
-     // TODO t 暂时不清楚意义
-     int t = 1;  // 目前不知道是统计什么的，应该其他函数是有用到的
-     INODE inode, inode2;
-     DIR dir;
+    INODE inode, inode2;
+    DIR dir;
     readinode(index, inode);
     if (havePower(inode)) {
         // i:待删除的子目录下标，index2为目录项种的待删子目录的节点
@@ -923,9 +931,10 @@ void rmdir(char * dirname, int index) {
             readinode(index2, inode2);
             if (havePower(inode2)) {
                 if (inode2.mode[0] == 'd') {
-                    if (inode2.fsize != 0) {
+                    if (inode2.fsize > 0) {
                         char yes = 'y';
-                        if (t == 1) {
+                        if (tCnt == 1) {
+                            tCnt++;
                             cout << "该目录为非空，删除的话，将失去目录的所有文件，要继续吗？(y/n)";
                             cin >> yes;
                         }
@@ -950,11 +959,14 @@ void rmdir(char * dirname, int index) {
                                 }
                             }
                             rmdir(dirname, index);
+                            // 修改当前节点
+                            inode.fsize -= 36;
+                            const string &ctime1 = getTime();
+                            strcpy(inode.ctime, ctime1.c_str());
                         } else {
-                            cout << "目录删除失败";
+                            cout << dirname <<"目录删除失败" << endl;
                         }
                     } else {
-                        // 空目录删除
                         bfree(inode2.addr[0]);
                         ifree(index2);
                         // 对当前目录盘块的修改，inode.addr[0]为当前盘块号，i为待删子目录子目录项下标
@@ -962,31 +974,27 @@ void rmdir(char * dirname, int index) {
                         disk.seekp(514 * inode.addr[0] + 36 * i);
                         disk << setw(36) << "";
                         closeDisk();
-                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
-                            readdir(inode, j, dir);
-                            writedir(inode, dir, j-1);
-                        }
+//                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
+//                            readdir(inode, j, dir);
+//                            writedir(inode, dir, j-1);
+//                        }
                         // 对当前目录节点的修改
                         inode.fsize -= 36;
                         const string &ctime = getTime();
                         strcpy(inode.ctime, ctime.c_str());
+                        cout << dirname << "目录成功删除\n";
                     }
-                    cout << "目录成功删除";
-                    // 修改当前节点
-                    inode.fsize -= 36;
-                    const string &ctime1 = getTime();
-                    strcpy(inode.ctime, ctime1.c_str());
                 } else {
-                    cout << "数据文件应用rm命令删除";
+                    cout << dirname << "数据文件应用rm命令删除\n";
                 }
             } else {
-                cout << "你没有权限";
+                cout << dirname << "你没有权限\n";
             }
         } else {
-            cout << "目录中不存在该子目录";
+            cout << "目录中不存在目录" << dirname << endl;
         }
     } else {
-        cout << "你没有权限";
+        cout << "你没有权限\n";
     }
     writenode(inode, index);
 }
@@ -1458,6 +1466,7 @@ void getCommand() {
             cin >> dirname;
             getLog(command, dirname);
             rmdir(dirname, road[num - 1]);
+            setTcnt();
         }
         // 在当前目录下创建数据文件
         if (!strcmp(command, "mk")) {
@@ -1561,12 +1570,12 @@ void getCommand() {
             have = true;
             getLog(command, "");
             initial();
+            writesuper();
             cout << "系统已重置";
         }
         if (!strcmp(command, "exit")) {
             getLog(command, "");
             have = true;
-            writesuper();
             return;
         }
         if (!have) {

@@ -77,7 +77,7 @@ void getLog(char * command, char * input ) {
 
 int main() {
     // Windwos下面设定终端输出的编码格式为GBK
-    system("chcp 65001 > nul");
+//    system("chcp 65001 > nul");
     control.open(controlFile, ios::in | ios::out | ios::app);
     int i = -1;
     control >> i;

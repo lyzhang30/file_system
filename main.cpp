@@ -646,7 +646,56 @@ void rmForDir(char * filename, int index) {
     // 在调用这个函数之前，先把路径给存进去，然后再去除掉
     road[num] = index;
     num++;
-    rm(filename);
+    // 当前目录下删除指定数据文件
+    INODE inode, inode2;
+    DIR dir;
+    // 将当前节点写入节点对象
+    readinode(road[num - 1], inode);
+    // 权限
+    if (havePower(inode)) {
+        // int i, index2, i为待删除子目录目录项下标index2为目录项中的待删子目录的节点号
+        int i, index2;
+        if (havesame(filename, inode, i, index2)) {
+            // 待删除子目录的节点写入节点对象
+            readinode(index2, inode2);
+            if (havePower(inode2)) {
+                // 判断是否是数据文件而非目录文件
+                if (inode2.mode[0] == '-') {
+                    // 回收盘块和节点
+                    for (int ii = 0; ii < inode2.fbnum; ++ii) {
+                        bfree(inode2.addr[ii]);
+                    }
+                    ifree(index2);
+                    // 对当前目录盘块的修改，inode.addr[0]为当前盘块号，i为待删子目录的目录项下标
+                    openDisk();
+                    // 清空当前盘块第i个子目录的目录项
+                    disk.seekp(514 * inode.addr[0] + 36*i);
+                    disk << setw(36) << "";
+                    closeDisk();
+                    // 后面的移一位
+//                    for (int j = i + 1; j < (inode.fsize / 36); ++j) {
+//                        // 读入指定盘块
+//                        readdir(inode, j, dir);
+//                        writedir(inode, dir, j - 1);
+//                    }
+                    // 对当前目录节点的修改
+                    inode.fsize -= 36;
+                    const string &time = getTime();
+                    strcpy(inode.ctime, time.c_str());
+                    cout << "文件已经成功删除" << endl;
+                } else {
+                    cout << "目录文件应用rmdir命令删除";
+                }
+            } else {
+                cout << "你没有权限！";
+            };
+        } else {
+            cout << "目录中不存在该子目录";
+        }
+    } else {
+        cout << "你没有权限" << endl;
+    }
+    writenode(inode, road[num - 1]);
     // 恢复到原先的路径下
     num--;
     road[num] = 0;
@@ -975,10 +1024,10 @@ void rmdir(char * dirname, int index) {
                         disk.seekp(514 * inode.addr[0] + 36 * i);
                         disk << setw(36) << "";
                         closeDisk();
-                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
-                            readdir(inode, j, dir);
-                            writedir(inode, dir, j-1);
-                        }
+//                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
+//                            readdir(inode, j, dir);
+//                            writedir(inode, dir, j-1);
+//                        }
                         // 对当前目录节点的修改
                         inode.fsize -= 36;
                         const string &ctime = getTime();

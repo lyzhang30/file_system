@@ -944,7 +944,6 @@ void rmdir(char * dirname, int index) {
                             char name[14];
                             int index3;
                             INODE inode3;
-                            // add  by zhanglianyong
 
                             for (int i = 0; i < (inode2.fsize / 36); i++) {
                                 openDisk();
@@ -956,6 +955,7 @@ void rmdir(char * dirname, int index) {
                                 if (inode3.mode[0] == 'd') {
                                     rmdir(name, index2);
                                 } else {
+                                    // add  by zhanglianyong
                                     rmForDir(name, index2);
                                 }
                             }
@@ -975,10 +975,10 @@ void rmdir(char * dirname, int index) {
                         disk.seekp(514 * inode.addr[0] + 36 * i);
                         disk << setw(36) << "";
                         closeDisk();
-//                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
-//                            readdir(inode, j, dir);
-//                            writedir(inode, dir, j-1);
-//                        }
+                        for (int j = i + 1;j < (inode.fsize / 36); j++) {
+                            readdir(inode, j, dir);
+                            writedir(inode, dir, j-1);
+                        }
                         // 对当前目录节点的修改
                         inode.fsize -= 36;
                         const string &ctime = getTime();
@@ -1222,7 +1222,7 @@ void chmod(char * name){
                 if(amode[1]=='a'){
                     inode2.mode[(int)amode[0]-48]='-';
                     inode2.mode[(int)amode[0]+1-48]='w';
-                    writenode(inode2,index2);
+                    writenode(inode2, index2);
                     cout << "修改完毕";
                 }else{
                     if(amode[1]=='b'){
